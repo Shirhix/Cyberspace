@@ -2,6 +2,9 @@
 import * as BABYLON from '@babylonjs/core';
 import "@babylonjs/loaders/glTF";
 import * as cannon from 'cannon';
+import * as GUI from '@babylonjs/gui';
+import * as DebugLayer from "@babylonjs/core/Debug/debugLayer";
+import * as Inspector from "@babylonjs/inspector";
 
 // models
 import skycityUrl from '/models/skycityNew.gltf';
@@ -10,11 +13,15 @@ import devilmachineUrl from '/models/devilmachine.gltf';
 import interiorUrl from '/models/interior.gltf';
 import foliageUrl from '/models/foliage.gltf';
 import itemsUrl from '/models/items.gltf';
+import histoUrl from '/models/histopopart.gltf';
+import logoUrl from '/models/logo.gltf';
+import lodsUrl from '/models/lods.gltf';
+import boxsUrl from '/models/boxs.gltf';
 
 // materials
 import nodeMaterialBaseUrl1 from '/textures/nodeMaterial (75).json';
 import nodeMaterialBaseUrl2 from '/textures/nodeMaterial (81).json';
-import nodeMaterialBaseTree from '/textures/nodeMaterialPaletteTree.json';
+import nodeMaterialBaseTree from '/textures/nodeMaterialTreeMove.json';
 import nodeMaterialBaseLeaf from '/textures/nodeMaterial (80).json';
 
 window.CANNON = cannon;
@@ -67,28 +74,62 @@ BABYLON.Animation.prototype.floatInterpolateFunction = function (startValue, end
 };
 
 // import async func
+var skycity = {ready:false};
+var medilab = {ready:false};
+var devilmachine = {ready:false};
+var interior = {ready:false};
+var foliage = {ready:false};
+var items = {ready:false};
+var histos = {ready:false};
+var logos = {ready:false};
+var globalLODs = {ready:false};
+var globalBOXs = {ready:false};
+const globalLOD = new Map();
+const globalBOX = new Map();
+
+// lods
 async function startGame() 
 {
+    // lods
+    globalLODs = new LODImport(lodsUrl, scene, shadowGeneratorCascaded, 0b00100, "lod");
+    globalLODs.ready = await globalLODs.loadfile();
+
+    // boxes
+    globalBOXs = new BOXImport(boxsUrl, scene, shadowGeneratorCascaded, 0b10000, "box");
+    globalBOXs.ready = await globalBOXs.loadfile();
+
     // flags [collision, makeshadows, receiveshadows, pickable, placeholder]
-    const skycity = new Import(skycityUrl, scene, shadowGeneratorCascaded, 0b11110, "world");
-    await skycity.loadfile();
+    skycity = new Import(skycityUrl, scene, shadowGeneratorCascaded, 0b11110, "world");
+    skycity.ready = await skycity.loadfile();
 
-    const medilab = new Import(medilabUrl, scene, shadowGeneratorCascaded, 0b11110, "world");
-    await medilab.loadfile();
+    medilab = new Import(medilabUrl, scene, shadowGeneratorCascaded, 0b11110, "world");
+    medilab.ready = await medilab.loadfile();
 
-    const devilmachine = new Devilmachine(devilmachineUrl, scene, shadowGeneratorCascaded, 0b00110, "devilmachine");
-    await devilmachine.loadfile();
-    machineHandler = devilmachine;
+    devilmachine = new Devilmachine(devilmachineUrl, scene, shadowGeneratorCascaded, 0b00110, "devilmachine");
+    devilmachine.ready = await devilmachine.loadfile();
 
-    const interior = new Import(interiorUrl, scene, shadowGeneratorCascaded, 0b00110, "interior");
-    await interior.loadfile();
+    interior = new Import(interiorUrl, scene, shadowGeneratorCascaded, 0b00110, "interior");
+    interior.ready = await interior.loadfile();
 
-    const foliage = new Import(foliageUrl, scene, shadowGeneratorCascaded, 0b01100, "foliage");
-    await foliage.loadfile();
+    foliage = new Import(foliageUrl, scene, shadowGeneratorCascaded, 0b01100, "foliage");
+    foliage.ready = await foliage.loadfile();
 
-    const items = new Import(itemsUrl, scene, shadowGeneratorCascaded, 0b00110, "item");
+    items = new Import(itemsUrl, scene, shadowGeneratorCascaded, 0b00110, "item");
     await items.loadfile();
     await items.createSeperateHitboxes(true);
+    items.ready = true;
+
+    histos = new RotationArt(histoUrl, scene, shadowGeneratorCascaded, 0b01110, "viewable");
+    histos.ready = await histos.loadfile();
+    histos.createLabels();
+    
+    logos = new ImportAnimated(logoUrl, scene, shadowGeneratorCascaded, 0b00000, "world", (_ma) => {
+        _ma.forEach((m, index) => {
+            m.rotationQuaternion = null;
+            m.rotation.y += 0.01;
+        });
+    });
+    logos.ready = await logos.loadfile();
 
     // spawn player
     player.setAbsolutePosition(BABYLON.Vector3.Zero());
@@ -98,12 +139,8 @@ async function startGame()
 class CyborgMap extends Map {
     constructor() {
         super();
-        this.constructor.prototype.increment = function (key) {
-            this.has(key) && this.set(key, Math.min(65535, this.get(key) + 1));
-        }
-        this.constructor.prototype.decrement = function (key) {
-            this.has(key) && this.set(key, Math.max(0, this.get(key) - 1));
-        }
+        this.constructor.prototype.increment = function (key) {this.has(key) && this.set(key, Math.min(65535, this.get(key) + 1));}
+        this.constructor.prototype.decrement = function (key) {this.has(key) && this.set(key, Math.max(    0, this.get(key) - 1));}
     }
 }
 
@@ -122,52 +159,58 @@ class Import
         this.flags = _flags;
         this.class = _class;
         this.animators = undefined; // map
+        this.ready = false;
     }
 
-    async loadfile() {
+    async loadfile() 
+    {
+        // load meshes from gltf
         var arr = await BABYLON.SceneLoader.ImportMeshAsync('', this.filename, '', this.scene);
         this.modelArray = arr.meshes[0].getChildMeshes();
         this.modelArray.forEach((m, index) => {
             m.class = this.class;
             m.setParent(null);
+            // m.rotationQuaternion = null;
         });
+
+        // overrides
         await this.generateCollision();
-        await this.generateShadows();
-        await this.receiveShadows();
+        if (shadowsEnabled) await this.generateShadows();
+        if (shadowsEnabled) await this.receiveShadows();
         await this.receivePickable();
         await this.updateMaterials();
+        await this.distributeLods();
+        return true;
     }
 
-    async createSeperateHitboxes(Issphere) 
-    {
-        if (Issphere) { // sphere hitbox
-            this.modelArray.forEach((m, index) => {
-                let _radius = m.getBoundingInfo().boundingSphere.radiusWorld;
-                let _mass = Math.pow(_radius, 3);
-                this.hitbox = new BABYLON.MeshBuilder.CreateSphere("itemhbs_", {diameter: _radius, segments : 1});
-                this.hitbox.position = m.position;
-                this.hitbox.physicsImpostor = new BABYLON.PhysicsImpostor(this.hitbox, BABYLON.PhysicsImpostor.SphereImpostor, {mass : _mass, friction : 0.99, restitution : 1.0});
-                this.hitbox.isVisible = false;
-                this.hitbox.addChild(m);
-            });
-        } else { // box hitbox
-            this.modelArray.forEach((m, index) => {
-                let _radius = m.getBoundingInfo().boundingSphere.radiusWorld;
-                this.hitbox = new BABYLON.MeshBuilder.CreateBox("itemhbb_", {size : _radius});
-                this.hitbox.position = m.position;
-                this.hitbox.isVisible = false;
-                this.hitbox.addChild(m);
-            });
-        }
+    async createSeperateHitboxes(Issphere) {
+        this.modelArray.forEach((m, index) => {
+            let _radius = m.getBoundingInfo().boundingSphere.radiusWorld;
+            let _mass = Math.pow(_radius, 3);
+            this.hitbox = new BABYLON.MeshBuilder.CreateSphere("itemhbs_", {diameter: _radius, segments : 1});
+            this.hitbox.position = m.position;
+            this.hitbox.physicsImpostor = new BABYLON.PhysicsImpostor(this.hitbox, BABYLON.PhysicsImpostor.SphereImpostor, {mass : _mass, friction : 0.99, restitution : 1.0});
+            this.hitbox.isVisible = false;
+            this.hitbox.addChild(m);
+        });
     }
 
     // import methods ///////////////////////////////////////////////
     async generateCollision() {
-        if (this.flags & 16) {
-            this.modelArray.forEach((m, index) => {
-                m.physicsImpostor = new BABYLON.PhysicsImpostor(m, BABYLON.PhysicsImpostor.MeshImpostor, {mass:0.0, restitution:0.2}, this.scene);
-            });
-        }
+        this.modelArray.forEach((m, index) => { // if you want collision, add it in the BOXs collection in blender, keep it simple, remove the material slot, put it at world origin.
+            let realname = m.isAnInstance ? m.name.slice(0, -4) : m.name;
+            let box = globalBOX.get(realname);
+            if (box != undefined) {
+                let boxInstance = m.isAnInstance ? box.clone() : box; // boxes aren't instanced, yet their owners are, so we just clone it, then put it there
+                    boxInstance.position = m.position.clone();
+                if (m.rotationQuaternion != null) {
+                    boxInstance.rotationQuaternion = m.rotationQuaternion.clone();
+                } else {
+                    boxInstance.rotation = m.rotation.clone();
+                } m.physicsImpostor = new BABYLON.PhysicsImpostor(boxInstance, BABYLON.PhysicsImpostor.MeshImpostor, {mass:0.0, restitution:0.2}, this.scene);
+            }
+            console.log(m.name + (m.isAnInstance ? " instance" : " original"));
+        });
     }
     async generateShadows() {
         if (this.flags & 8) {
@@ -197,28 +240,40 @@ class Import
         }
     }
     async updateMaterials() {
-        this.modelArray.forEach((m, index) => {
+        this.modelArray.forEach((m, index) => { // this is problematic, changing a material before every import has been made is going to duplicate some materials.
             if (!m.isAnInstance) {
                 switch (m.material.id)
                 {
                     case "ColorPaletteB":
-                        m.material = nodeMaterialBase;
+                        m.material.environmentIntensity = 0.0;
+                        m.material.backFaceCulling = true;
+                        // m.material = nodeMaterialBase; 
                     break;
                     case "TexturePaletteSkycity":
                         m.material = nodeMaterialSkycity;
+                        
                     break;
                     case "Fake_Glass":
                         m.material = pbrMateralGlass;
-                    break;
-                    case "TreePalette":
-                        m.material = nodeMaterialTree;
+                        m.material.backFaceCulling = true;
                     break;
                     case "LeafPalette":
                         m.material = nodeMaterialLeaf;
                     break;
-                    case "TextureAtlasA":
+                    default:
+                        m.material.backFaceCulling = true;
                     break;
                 } 
+            }
+        });
+    }
+
+    async distributeLods() {
+        this.modelArray.forEach((m, index) => {
+            let lodmesh = globalLOD.get(m.name);
+            if (lodmesh != undefined && !m.isAnInstance) {
+                let r = Math.sqrt(1 + 1000 * lodmesh.getBoundingInfo().boundingSphere.radiusWorld);
+                m.addLODLevel(r, lodmesh);
             }
         });
     }
@@ -249,6 +304,114 @@ class Import
         this.scene.beginDirectAnimation(obj.mesh, [anim], 0, len, false, 1, func, undefined, false);
     }
 
+    update(_camera) {
+    }
+}
+
+class ImportAnimated extends Import
+{
+    constructor(_filename, _scene, _shadows, _flags, _class, _func) {
+        super(_filename, _scene, _shadows, _flags, _class);
+        this.customFunction = _func;
+    }
+
+    update() {
+        super.update();
+        this.customFunction(this.modelArray);
+    }
+}
+
+class BOXImport extends Import
+{
+    constructor(_filename, _scene, _shadows, _flags, _class) {
+        super(_filename, _scene, _shadows, _flags, _class);
+    }
+
+    async loadfile() {
+        var arr = await BABYLON.SceneLoader.ImportMeshAsync('', this.filename, '', this.scene);
+        this.modelArray = arr.meshes[0].getChildMeshes();
+        this.modelArray.forEach((m, index) => {
+            m.class = this.class;
+            m.setParent(null);
+            m.isPickable = false;
+            m.shadowEnabled = false;
+            globalBOX.set(m.name.slice(0, -4), m);
+        });
+
+        this.modelArray.forEach((m, index) => {
+            m.physicsImpostor = new BABYLON.PhysicsImpostor(m, BABYLON.PhysicsImpostor.MeshImpostor, {mass:0.0, restitution:0.2}, this.scene);
+            m.isVisible = false;
+            m.material.wireframe = true;
+        });
+        return true;
+    }
+}
+
+class LODImport extends Import
+{
+    constructor(_filename, _scene, _shadows, _flags, _class) {
+        super(_filename, _scene, _shadows, _flags, _class);
+    }
+
+    async loadfile() {
+        var arr = await BABYLON.SceneLoader.ImportMeshAsync('', this.filename, '', this.scene);
+        this.modelArray = arr.meshes[0].getChildMeshes();
+        this.modelArray.forEach((m, index) => {
+            m.class = this.class;
+            m.setParent(null);
+            m.isPickable = false;
+            m.shadowEnabled = false;
+            m.rotationQuaternion = null;
+            globalLOD.set(m.name.slice(0, -5), m);
+        });
+        return true;
+    }
+}
+
+class RotationArt extends Import
+{
+    constructor(_filename, _scene, _shadows, _flags, _class) {
+        super(_filename, _scene, _shadows, _flags, _class);
+        this.texts = [["Muskel","Nierenkörperchen","Blutgefässe","Dünndarm"],["Nebenhoden","Haar Quer","Haar Längs","Haut"],["Hoden","Knochen","Harnleiter","Speiseröhre"],"HistoPopArt"];
+        this.rects = new Array();
+    }
+
+    update(_camera) {
+        super.update(_camera);
+        var time = performance.now() * 0.001;
+        this.modelArray.forEach((m, index) => {
+            m.rotation.y = Math.sin(time + Math.floor(index/2) * 1000);
+        });
+        this.rects.forEach((m, index) => {
+            let mesh = m._linkedMesh;
+            let dis = Math.abs(_camera.position.x - mesh.position.x) + Math.abs(_camera.position.y - mesh.position.y) + Math.abs(_camera.position.z - mesh.position.z);
+            m.isVisible = dis < 12;
+        });
+    }
+
+    createLabels() 
+    {
+        this.modelArray.forEach((m, index) => {
+            if (m.material.name == "Histopops") {
+                let uvs = m.getVerticesData("uv"); // uses uvs to determine which text is used in the label
+                let i = uvs[0] * 4;
+                let j = uvs[1] * 4;
+                let label = new GUI.TextBlock();
+                    label.text = this.texts[i][j];
+                let rect = new GUI.Rectangle();
+                    rect.width = 0.01 * label.text.length;
+                    rect.height = "16px";
+                    rect.color = "cyan";
+                    rect.background = "black";
+                    rect.isVisible = false;
+                advancedTexture.addControl(rect);   
+                    rect.addControl(label);
+                    rect.linkWithMesh(m);
+                    rect.linkOffsetY = 40;
+                this.rects.push(rect);
+            }
+        });
+    }
 }
 
 // individual import classes
@@ -271,10 +434,12 @@ class Devilmachine extends Import
             }
         });
         this.registerAnimators();
+        return true;
     }
 
     // methods
-    tryStart() {
+    tryStart() 
+    {
         if (this.readyState < 0b11111) {
             //return false;
         }
@@ -283,7 +448,6 @@ class Devilmachine extends Import
         this.machineState = 1;
 
         // animation
-        var t = performance.now();
         super.playAnimation("dms_schlitten", 0, () => {
             super.playAnimation("dms_magnifier", 0, () => {
                 super.playAnimation("dms_schlitten", 1, () => {
@@ -334,11 +498,10 @@ class Devilmachine extends Import
                 });
             });
         });
-        var t = performance.now() - t;
-        console.log("animation registered in : " + Math.round(1000*t)/1000 + " ms");
     }
 
-    TTP(_camera) {
+    update(_camera) {
+        super.update(_camera);
         var minDis = 10;
         this.meshesTTP.forEach((element, index) => {
             var dis = point_distance(element._absolutePosition.x, element._absolutePosition.z, _camera.position.x, _camera.position.z);
@@ -497,7 +660,7 @@ class Avatar extends BABYLON.Mesh
     constructor(scene, camera, spawn) 
     {
         super("Avatar", scene);
-        this.root = new BABYLON.MeshBuilder.CreateSphere("avatar-root", {diameter : 1.0, segments : 16});
+        this.root = new BABYLON.MeshBuilder.CreateSphere("avatar-root", {diameter : 1.0, segments : 1});
         this.root.physicsImpostor = new BABYLON.PhysicsImpostor(this.root, BABYLON.PhysicsImpostor.SphereImpostor, {mass: 1, restitution: 0.5, friction: 0.1}, scene);
         this.root.isPickable = false;
         this.root.isVisible = false;
@@ -512,6 +675,11 @@ class Avatar extends BABYLON.Mesh
         this.heldItem = undefined;
         this.handPosition = new BABYLON.Vector3();
         this.myCamera = camera;
+
+        // state machine
+        this.state = "free";
+        this.chair = undefined;
+        this.inspector = undefined;
 
         // apply camera
         camera.setTarget(this.absolutePosition);
@@ -538,25 +706,77 @@ class Avatar extends BABYLON.Mesh
 
     update() 
     {
-        // set rotation to camera
-        this.root.rotation.xz = this.myCamera.rotation.xz;
+        // update camera
+        this.myCamera.position.x = Math.lerp(this.myCamera.position.x, this.root.position.x, 0.4);
+        this.myCamera.position.z = Math.lerp(this.myCamera.position.z, this.root.position.z, 0.4);
+        this.myCamera.position.y = Math.lerp(this.myCamera.position.y, this.root.position.y + 1.0, 0.4);
 
-        // increase speed
+        // set rotation to camera, inputs
+        this.root.rotation.xz = this.myCamera.rotation.xz;
         let vmult = keyPressed("w") - keyPressed("s");
         let hmult = keyPressed("a") - keyPressed("d");
+        let input_action1 = keyPressed("f");
+        let input_action2 = keyPressed("q");
+        let input_jump = keyPressed(" ");
+        let pi = scene.pick(scene.pointerX, scene.pointerY);
 
-        this.speed.x = lengthdir_x(vmult * this.moveSpeed, this.myCamera.rotation.y) + lengthdir_x(hmult * this.moveSpeed, this.myCamera.rotation.y - Math.PI/2);
-        this.speed.z = lengthdir_z(vmult * this.moveSpeed, this.myCamera.rotation.y) + lengthdir_z(hmult * this.moveSpeed, this.myCamera.rotation.y - Math.PI/2);
+        switch (this.state)
+        {
+            case "free":
+
+                // move jump freely
+                this.speed.x = lengthdir_x(vmult * this.moveSpeed, this.myCamera.rotation.y) + lengthdir_x(hmult * this.moveSpeed, this.myCamera.rotation.y - Math.PI/2);
+                this.speed.z = lengthdir_z(vmult * this.moveSpeed, this.myCamera.rotation.y) + lengthdir_z(hmult * this.moveSpeed, this.myCamera.rotation.y - Math.PI/2);
+                if (input_jump) this.jump();
+
+                // interaction
+                if (input_action1) {
+                    this.action(pi);
+                } else {
+                    if (input_action2) {
+                        this.drop();
+                    }
+                }
+
+            break;
+            case "sit":
+
+                // teleport to chair
+                this.speed = BABYLON.Vector3.Zero();
+                this.root.position = this.chair.position.clone();
+
+                // get up
+                if (input_action2 || input_jump) {
+                    this.state = "free";
+                    this.chair = undefined;
+                    this.root.physicsImpostor._physicsBody.wakeUp();
+                }
+
+            break;
+            case "inspect":
+
+                // special camera
+                
+
+                // stop
+                if (input_action2) {
+                    this.state = "free";
+                    this.inspector = undefined;
+                    this.root.physicsImpostor._physicsBody.wakeUp();
+                    scene.activeCamera = this.myCamera;
+                }
+
+            break;
+        }
 
         // reduce speed
         this.speed = BABYLON.Vector3.Lerp(this.speed, BABYLON.Vector3.Zero(), 0.10);
         this.root.physicsImpostor._physicsBody.velocity.x = this.speed.x;
         this.root.physicsImpostor._physicsBody.velocity.z = this.speed.z;
-
-        // update camera
-        this.myCamera.position.x = Math.lerp(this.myCamera.position.x, this.root.position.x, 0.4);
-        this.myCamera.position.z = Math.lerp(this.myCamera.position.z, this.root.position.z, 0.4);
-        this.myCamera.position.y = Math.lerp(this.myCamera.position.y, this.root.position.y + 1.0, 0.4);
+    
+        // auto update
+        this.updateHeld();
+        this.updateRay(pi);
     }
 
     jump() {
@@ -602,6 +822,8 @@ class Avatar extends BABYLON.Mesh
 
         console.log("picked " + pickinfo.pickedMesh.name);
         console.log("class " + pickinfo.pickedMesh.class);
+        let realname = pickinfo.pickedMesh.isAnInstance ? pickinfo.pickedMesh.name.slice(0, -4) : pickinfo.pickedMesh.name;
+
         switch (pickinfo.pickedMesh.class)
         {
             case "world":
@@ -609,18 +831,45 @@ class Avatar extends BABYLON.Mesh
 
             break;
             case "devilmachine":
-                switch (pickinfo.pickedMesh.name)
+                switch (realname)
                 {
                     case "DisplayMain":
-                        machineHandler.tryStart();
+                        devilmachine.tryStart();
                     break;
                     case "dms_schlitten":
-                    
+
                     break;
                 }
             break;
             case "item":
                 this.pickup(pickinfo.pickedMesh);
+            break;
+            case "interior":
+                
+                switch (realname)
+                {
+                    case "Chairstool":
+                    case "SM_Chair":
+                        this.state = "sit";
+                        this.chair = pickinfo.pickedMesh;
+                        this.root.physicsImpostor._physicsBody.sleep();
+                    break;
+                    case "SM_Centrifuge":
+                        this.state = "inspect";
+                        this.inspector = pickinfo.pickedMesh;
+                        if (inspectorCamera == undefined) {
+                            inspectorCamera = new BABYLON.ArcRotateCamera("inscam", 0, 0, 1, BABYLON.Vector3.Zero(), scene, false);
+                            inspectorCamera.minZ = 0.1;
+                            inspectorCamera.panningSensibility = 0;
+                            inspectorCamera.zoomOnFactor = 0.2;
+                            inspectorCamera.attachControl(true);
+                        }
+                        inspectorCamera.setTarget(this.inspector.position.clone());
+                        inspectorCamera.position = this.myCamera.position.clone();
+                        scene.activeCamera = inspectorCamera;
+                        this.root.physicsImpostor._physicsBody.sleep();
+                    break;
+                }
             break;
         }
     }
@@ -682,12 +931,16 @@ const scene = new BABYLON.Scene(engine, {fogStart : 150, fogEnd : 400, fogColor 
     scene.autoClear = false; // Color buffer
     scene.autoClearDepthAndStencil = false; // Depth and stencil, obviously
     scene.blockMaterialDirtyMechanism = true;
+    scene.debugLayer.show();
+    scene.pointerMovePredicate = () => false;
+    scene.pointerDownPredicate = () => false;
+    scene.pointerUpPredicate = () => false;
     //scene.enablePhysics(new BABYLON.Vector3(0,-12,0)); // physics engine
-    
+    scene.skipFrustumCulling = false
 const glowlayer = new BABYLON.GlowLayer("glow", scene);
 const ambientlight = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 20, 0), scene);
     ambientlight.intensity = 0.08;
-    
+
 const sunlight = new BABYLON.DirectionalLight("spotlight", new BABYLON.Vector3(-1, -1, 1), scene);
     sunlight.position = new BABYLON.Vector3(6, 2, 6);  
     sunlight.intensity = 4.6;
@@ -702,11 +955,12 @@ const shadowGeneratorCascaded = new BABYLON.CascadedShadowGenerator(2048, sunlig
     shadowGeneratorCascaded.numCascades = 1;
     shadowGeneratorCascaded.shadowMaxZ = 12000;
     shadowGeneratorCascaded.bias = 0.01; // 0.02
+const shadowsEnabled = true;
 const camera = new BABYLON.UniversalCamera("MyCamera", new BABYLON.Vector3(0, 1, 0), scene);
     camera.minZ = 0.1;
-    camera.attachControl(canvas, true);
-    camera.speed = 0.05;
-    camera.angularSpeed = 0.05;
+    camera.attachControl(true);
+var inspectorCamera = undefined;
+const advancedTexture = GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI", true, scene);
 const utillayer = new BABYLON.UtilityLayerRenderer(scene);
 const instrumentation = new BABYLON.SceneInstrumentation(scene);
     instrumentation.captureRenderTime = true;
@@ -721,14 +975,17 @@ const pbrMateralGlass = new BABYLON.PBRMaterial("glassMat", scene);
     pbrMateralGlass.environmentIntensity = 0.8;
     pbrMateralGlass._albedoColor = new BABYLON.Color3(0,0,0);
     pbrMateralGlass.alpha = 0.45;
+    pbrMateralGlass.freeze();
 
 // node materials
 const nodeMaterialBase = BABYLON.NodeMaterial.Parse(nodeMaterialBaseUrl1, scene);
+    nodeMaterialBase.backFaceCulling = true; 
     nodeMaterialBase.freeze();
 const nodeMaterialSkycity = BABYLON.NodeMaterial.Parse(nodeMaterialBaseUrl2, scene);
+    nodeMaterialSkycity.backFaceCulling = true; 
     nodeMaterialSkycity.freeze();
 const nodeMaterialTree = BABYLON.NodeMaterial.Parse(nodeMaterialBaseTree, scene);
-    nodeMaterialTree.freeze();
+    //nodeMaterialTree.freeze();
 const nodeMaterialLeaf = BABYLON.NodeMaterial.Parse(nodeMaterialBaseLeaf, scene);
     nodeMaterialLeaf.backFaceCulling = false;
     nodeMaterialLeaf.freeze();
@@ -737,7 +994,6 @@ const nodeMaterialLeaf = BABYLON.NodeMaterial.Parse(nodeMaterialBaseLeaf, scene)
 const divFps = document.getElementById("fps");
 const divDrawCalls = document.getElementById("drawcalls");
 const player = new Avatar(scene, camera, BABYLON.Vector3.Zero());
-var machineHandler = undefined;
 
 // game running functions
 engine.runRenderLoop(function() {
@@ -761,24 +1017,22 @@ scene.registerAfterRender(function()
 // after render
 scene.registerBeforeRender(function() 
 {
-    // main update loop
-    let pi = scene.pick(scene.pointerX, scene.pointerY);
-    if (keyPressed("f")) player.action(pi);
-
-    // player jump
-    if (keyPressed(" ")) player.jump();
-
-    // drop item
-    if (keyPressed("q")) player.drop();
     
     // camera to player position, and rotation, held items
     player.update();
-    player.updateHeld();
-    player.updateRay(pi);
 
     // other shit
-    if (machineHandler != undefined) {
-        machineHandler.TTP(camera);
+    if (devilmachine.ready) {
+        devilmachine.update(camera);
+    }
+
+    // histo art
+    if (histos.ready) {
+        histos.update(camera);
+    }
+
+    if (logos.ready) {
+        logos.update();
     }
 });
 
