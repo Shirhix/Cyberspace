@@ -1,0 +1,84 @@
+{
+    "asset" : {
+        "generator" : "Khronos glTF Blender I/O v3.4.50",
+        "version" : "2.0"
+    },
+    "scene" : 0,
+    "scenes" : [
+        {
+            "name" : "Scene",
+            "nodes" : [
+                0
+            ]
+        }
+    ],
+    "nodes" : [
+        {
+            "mesh" : 0,
+            "name" : "BezierCurve.002",
+            "translation" : [
+                7.921772480010986,
+                16.07818603515625,
+                4.977949142456055
+            ]
+        }
+    ],
+    "meshes" : [
+        {
+            "name" : "Mesh",
+            "primitives" : [
+                {
+                    "attributes" : {
+                        "POSITION" : 0
+                    },
+                    "indices" : 1,
+                    "mode" : 1
+                }
+            ]
+        }
+    ],
+    "accessors" : [
+        {
+            "bufferView" : 0,
+            "componentType" : 5126,
+            "count" : 85,
+            "max" : [
+                108.3118896484375,
+                109.04890441894531,
+                127.39395904541016
+            ],
+            "min" : [
+                -132.60890197753906,
+                -3.372415542602539,
+                -163.03753662109375
+            ],
+            "type" : "VEC3"
+        },
+        {
+            "bufferView" : 1,
+            "componentType" : 5123,
+            "count" : 168,
+            "type" : "SCALAR"
+        }
+    ],
+    "bufferViews" : [
+        {
+            "buffer" : 0,
+            "byteLength" : 1020,
+            "byteOffset" : 0,
+            "target" : 34962
+        },
+        {
+            "buffer" : 0,
+            "byteLength" : 336,
+            "byteOffset" : 1020,
+            "target" : 34963
+        }
+    ],
+    "buffers" : [
+        {
+            "byteLength" : 1356,
+            "uri" : "data:application/octet-stream;base64,4ZsEwwoZ2kJ7C7fCME/3wqK02EILls3CP0nmwt8b10Js0OHCsu7Vwg1R1UJQ1fPCSwjGwnhW00K03wHDzV62wm0u0UKz1AjD+7qmwjfbzkL+1g7Dl+WWwiNfzELt8xPDZKeGwny8yULaOBjDSZJrwo/1xkIdsxvDNidIwqgMxEIPcB7DFJ8iwhIEwUIJfSDD0Bb1wRrevUJk5yHDcPuewQ2dukJ4vCLDMB4EwTZDt0KcCSPDXLt1QOzes0IKRSLDXDF+Qcd5sEJ64h/D/gTeQfYOrUKO6xvDVjYdQqaZqULmaRbDBKBJQgUVpkIjZw/DsLdzQkF8okLm7AbDwXqNQojKnkKfCfrC0GifQgf7mkIBcePCGmKvQu0Il0I0I8rCsiK9QmfvkkJ5M67CrWbIQqOpjkIStY/CHurQQs8yikKAdl3CGWnWQhmGhUKKshbCsJ/YQrCegEKIiZbBpDDXQqqod0IAB5o9NSPSQm73bkIv6o5BO8rJQscWZ0IlAQpCjXi+QtDzX0LZvkdCBIGwQqN7WULwPYBCdzagQlqbU0L0AppCvuuNQhBATkJPFbFCZOdzQuBWSULYW8VCVEJJQuXMREJlvdZC/I0cQjiPQELMIOVCGODcQfWKPELkbPBCzjh+QTatOEKEiPhCFHGEQBbjNEKCWv1CZFPvwLEZMUK1yf5C/BWUweBHLUJRxf1CriXlwXpsKUKuV/tCF7QXwo6AJUJWkPdC3qA5wip9IULUfvJCTItYwl1bHUK0MuxCgaV0wjYUGUKAu+RCzhCHwsSgFELDKNxC35iSwhb6D0IIitJCBASdwjsZC0LZ7sdCTGumwkH3BULCZrxCyOeuwjeNAEJOAbBCh5K2wlio9UEHzqJCmoS9wl2K6UF53JRCD9fDwp2y3EEvPIZC7DXJwg5gzkHS6W1C1TzNwvkkvkGRVk5CUezPwm9wrEFONC5C5UTRwoCxmUG7+A1CF0fRwj1XhkETM9xBbvPPwm6hZUHYGJ5Bb0rNwvwZP0FSHEVBoUzJwkb2GUGo+alAifrDwtoo7kAQsJK/rVS9wiSlrkDQCt7AlFu1wlo7bkCWOj/Bww+swm+dEkBij4DBwHGhwhjSmz+UbZnBEoKVwsRaDj91TKnB6rOJwii5+T3KbLPBb6R+wkiJm74KyLvBNUJswo6fN7//h8LBaMlbwkmwjr9y1sfBScJMwlMHv78v3cvBGrU+wmFY7L//xc7BHCoxwncTC8CtutDBkKkjwjv7HcAD5dHBuLsVwjulLsDLbtLB1ugGwjTTPMDQgdLBVXLtweRGSMDcR9LB7mnJwQnCUMC56tHB+sigwWEGVsAylNHBBEBlwajVV8AUbtHBAAABAAEAAgACAAMAAwAEAAQABQAFAAYABgAHAAcACAAIAAkACQAKAAoACwALAAwADAANAA0ADgAOAA8ADwAQABAAEQARABIAEgATABMAFAAUABUAFQAWABYAFwAXABgAGAAZABkAGgAaABsAGwAcABwAHQAdAB4AHgAfAB8AIAAgACEAIQAiACIAIwAjACQAJAAlACUAJgAmACcAJwAoACgAKQApACoAKgArACsALAAsAC0ALQAuAC4ALwAvADAAMAAxADEAMgAyADMAMwA0ADQANQA1ADYANgA3ADcAOAA4ADkAOQA6ADoAOwA7ADwAPAA9AD0APgA+AD8APwBAAEAAQQBBAEIAQgBDAEMARABEAEUARQBGAEYARwBHAEgASABJAEkASgBKAEsASwBMAEwATQBNAE4ATgBPAE8AUABQAFEAUQBSAFIAUwBTAFQA"
+        }
+    ]
+}

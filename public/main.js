@@ -17,14 +17,50 @@ import histoUrl from '/models/histopopart.gltf';
 import logoUrl from '/models/logo.gltf';
 import lodsUrl from '/models/lods.gltf';
 import boxsUrl from '/models/boxs.gltf';
+import terrainUrl from '/models/terrain.gltf';
+import cameraUrl from '/models/camerapath.gltf';
 
 // materials
 import nodeMaterialBaseUrl1 from '/textures/nodeMaterial (75).json';
-import nodeMaterialBaseUrl2 from '/textures/nodeMaterial (81).json';
+import nodeMaterialBaseUrl2 from '/textures/nodeMaterialMedilab.json';
 import nodeMaterialBaseTree from '/textures/nodeMaterialTreeMove.json';
 import nodeMaterialBaseLeaf from '/textures/nodeMaterial (80).json';
+import nodeMaterialTerrainUrl from '/textures/nodeMaterialTerrain.json';
+import nodeMaterialWaterUrl from '/textures/nodeMaterial (97).json';
+
+// textures
+import uiTex1 from '/textures/uiHelditem.png';
+
+// files
+import {Inventory} from './inventory.js';
 
 window.CANNON = cannon;
+
+class Interface // for inventories etc
+{
+    constructor() {
+
+    }
+
+    createLabels() 
+    {
+        let label = new GUI.TextBlock();
+        label.text = this.texts[i][j];
+               
+        let rect = new GUI.Rectangle();
+        rect.width = 0.01 * label.text.length;
+        rect.height = "16px";
+        rect.color = "cyan";
+        rect.background = "black";
+        rect.isVisible = false;       
+
+        advancedTexture.addControl(rect);
+
+        rect.addControl(label);
+        rect.linkWithMesh(m);
+        rect.linkOffsetY = 40;
+    }
+}
 
 // math helper
 function clamp(val, n1, n2) {
@@ -74,6 +110,8 @@ BABYLON.Animation.prototype.floatInterpolateFunction = function (startValue, end
 };
 
 // import async func
+var camerapath = {ready:false};
+var terrain = {ready:false};
 var skycity = {ready:false};
 var medilab = {ready:false};
 var devilmachine = {ready:false};
@@ -92,18 +130,21 @@ async function startGame()
 {
     // lods
     globalLODs = new LODImport(lodsUrl, scene, shadowGeneratorCascaded, 0b00100, "lod");
-    globalLODs.ready = await globalLODs.loadfile();
+    //globalLODs.ready = await globalLODs.loadfile();
 
     // boxes
     globalBOXs = new BOXImport(boxsUrl, scene, shadowGeneratorCascaded, 0b10000, "box");
-    globalBOXs.ready = await globalBOXs.loadfile();
+    // globalBOXs.ready = await globalBOXs.loadfile();
 
     // flags [collision, makeshadows, receiveshadows, pickable, placeholder]
-    skycity = new Import(skycityUrl, scene, shadowGeneratorCascaded, 0b11110, "world");
-    skycity.ready = await skycity.loadfile();
+    //terrain = new ImportTerrain(terrainUrl, scene, shadowGeneratorCascaded, 0b0, "terrain");
+    //terrain.ready = await terrain.loadfile();
 
-    medilab = new Import(medilabUrl, scene, shadowGeneratorCascaded, 0b11110, "world");
-    medilab.ready = await medilab.loadfile();
+    // skycity = new Import(skycityUrl, scene, shadowGeneratorCascaded, 0b11110, "world");
+    // skycity.ready = await skycity.loadfile();
+
+    // medilab = new Import(medilabUrl, scene, shadowGeneratorCascaded, 0b11110, "world");
+    // medilab.ready = await medilab.loadfile();
 
     devilmachine = new Devilmachine(devilmachineUrl, scene, shadowGeneratorCascaded, 0b00110, "devilmachine");
     devilmachine.ready = await devilmachine.loadfile();
@@ -112,26 +153,28 @@ async function startGame()
     interior.ready = await interior.loadfile();
 
     foliage = new Import(foliageUrl, scene, shadowGeneratorCascaded, 0b01100, "foliage");
-    foliage.ready = await foliage.loadfile();
+    //foliage.ready = await foliage.loadfile();
 
     items = new Import(itemsUrl, scene, shadowGeneratorCascaded, 0b00110, "item");
-    await items.loadfile();
-    await items.createSeperateHitboxes(true);
-    items.ready = true;
+    //await items.loadfile();
+    //await items.createSeperateHitboxes(true);
+    //items.ready = true;
 
     histos = new RotationArt(histoUrl, scene, shadowGeneratorCascaded, 0b01110, "viewable");
-    histos.ready = await histos.loadfile();
-    histos.createLabels();
+    //histos.ready = await histos.loadfile();
+    //histos.createLabels();
     
     logos = new ImportAnimated(logoUrl, scene, shadowGeneratorCascaded, 0b00000, "world", (_ma) => {
         _ma.forEach((m, index) => {
             m.rotationQuaternion = null;
             m.rotation.y += 0.01;
         });
-    });
-    logos.ready = await logos.loadfile();
+    }); //logos.ready = await logos.loadfile();
+
+    
 
     // spawn player
+    engine.hideLoadingUI();
     player.setAbsolutePosition(BABYLON.Vector3.Zero());
 }
 
@@ -169,7 +212,7 @@ class Import
         this.modelArray = arr.meshes[0].getChildMeshes();
         this.modelArray.forEach((m, index) => {
             m.class = this.class;
-            m.setParent(null);
+            // m.setParent(null);
             // m.rotationQuaternion = null;
         });
 
@@ -247,11 +290,11 @@ class Import
                     case "ColorPaletteB":
                         m.material.environmentIntensity = 0.0;
                         m.material.backFaceCulling = true;
-                        // m.material = nodeMaterialBase; 
                     break;
                     case "TexturePaletteSkycity":
+                    case "Pavement":
                         m.material = nodeMaterialSkycity;
-                        
+                        m.material.backFaceCulling = true;
                     break;
                     case "Fake_Glass":
                         m.material = pbrMateralGlass;
@@ -305,6 +348,30 @@ class Import
     }
 
     update(_camera) {
+    }
+}
+
+class ImportTerrain extends Import
+{
+    constructor(_filename, _scene, _shadows, _flags, _class, _func) {
+        super(_filename, _scene, _shadows, _flags, _class);
+        this.customFunction = _func;
+    }
+
+    async loadfile() {
+        var arr = await BABYLON.SceneLoader.ImportMeshAsync('', this.filename, '', this.scene);
+        this.modelArray = arr.meshes[0].getChildMeshes();
+        this.modelArray.forEach((m, index) => {
+            m.class = this.class;
+            m.setParent(null);
+            m.isPickable = false;
+            m.shadowEnabled = true;
+            m.receiveShadows = true;
+        });
+        this.modelArray[0].material = nodeMaterialTerrain;
+        //this.modelArray[1].material = nodeMaterialWater;
+        this.modelArray[2].material = nodeMaterialWater;
+        return true; 
     }
 }
 
@@ -654,10 +721,142 @@ class Devilmachine extends Import
     }
 }
 
+// camera
+class CameraManager 
+{
+    constructor() 
+    {
+        this.mode = "arc";
+
+        this.cameraUni = new BABYLON.UniversalCamera("cameraUni", new BABYLON.Vector3(0, 1, 0), scene);
+        this.cameraUni.minZ = 1;
+        this.cameraUni.maxZ = 42000;
+        this.cameraUni.attachControl(false);
+        this.cameraUni.defaults = {minZ:1, maxZ:42000};
+
+        this.cameraArc = new BABYLON.ArcRotateCamera("cameraArc", 0.5, 0.5, 1, BABYLON.Vector3.Zero(), scene, false);
+        this.cameraArc.minZ = 1;
+        this.cameraArc.panningSensibility = 0;
+        this.cameraArc.attachControl(true);
+        this.cameraArc.lowerRadiusLimit = 50; 
+        this.cameraArc.upperRadiusLimit = 450;
+        this.cameraArc.wheelPrecision = 0.2;
+        this.cameraArc.defaults = {minZ:1, panningSensibility:0, lowerRadiusLimit:250, upperRadiusLimit:450, wheelPrecision:0.2};
+
+        // defeault start
+        this.changeCamera("arc");
+
+        // import paths
+        this.camerapaths = undefined;
+        this.activeVertices = undefined;
+        this.startVertex = undefined;
+        this.endVertex = undefined;
+        this.arcStep = 0;
+        this.cameraPathPosition = new Array();
+    }
+
+    async loadPaths() {
+        let arr = await BABYLON.SceneLoader.ImportMeshAsync('', cameraUrl, '', this.scene);
+        this.camerapaths = arr.meshes[0].getChildMeshes();
+        this.camerapaths.forEach((m, index) => {
+            m.class = "path";
+            m.setParent(null);
+            m.isPickable = false;
+            m.isVisible = true;
+            m.wireframe = true;
+        });
+        console.log(this.camerapaths);
+        return true;
+    }
+
+    changeCamera(to, seamless=false, target=undefined, data={}) {
+        this.arcStep = 0; 
+        this.mode = to;
+        scene.activeCamera = this.mode == "uni" ? this.cameraUni : this.cameraArc;
+        if (target != undefined) {
+            scene.activeCamera.setTarget(target);
+        } 
+        this.cameraArc.lowerRadiusLimit = data.lowerRadiusLimit ?? 100; 
+        this.cameraArc.upperRadiusLimit = data.upperRadiusLimit ?? 150; 
+        this.cameraArc.wheelPrecision = data.wheelPrecision ?? 1/100;
+    }
+
+    flipCamera(target=undefined) {
+        switch (this.mode) {
+            case "arc": this.mode = "uni"; break;
+            case "uni": this.mode = "arc"; break;
+        } changeCamera(this.mode, target);
+    }
+
+    update()
+    {
+        switch (this.mode) 
+        {
+            case "arc":
+
+            break;
+            case "unimove": // update lerp
+
+                this.arcStep += 0.1;
+
+                // position
+                let pos1 = this.cameraPathPosition[Math.ceil(this.arcStep)];
+                let pos2 = this.cameraPathPosition[Math.floor(this.arcStep)+2];
+
+                let tar1 = this.cameraPathPosition[Math.ceil(this.arcStep)+5];
+                let tar2 = this.cameraPathPosition[Math.floor(this.arcStep)+7];
+                let alpha = this.arcStep % 1;
+
+                let position = new BABYLON.Vector3(Math.lerp(pos1.x, pos2.x, alpha), Math.lerp(pos1.y, pos2.y, alpha), Math.lerp(pos1.z, pos2.z, alpha));
+                let rotation = new BABYLON.Vector3(Math.lerp(tar1.x, tar2.x, alpha), Math.lerp(tar1.y, tar2.y, alpha), Math.lerp(tar1.z, tar2.z, alpha));
+
+                this.cameraUni.position = position;
+                this.cameraUni.setTarget(rotation);
+                
+                if (this.arcStep-1 >= this.endStep) {
+                    this.mode = "arc";
+                }
+
+            break;
+            case "uni":
+                
+            break;
+        }
+    }
+    
+    isBriefingActive() {
+        return Math.round(this.arcStep) != this.arcStep;
+    }
+
+    activateCameraFlight(mesh=this.camerapaths[0]) 
+    {
+        if (this.isBriefingActive()) {
+            return false;
+        }
+
+        // figure out points from mesh
+        this.activeVertices = mesh._getPositionData();
+        console.log(this.cameraArc);
+        scene.activeCamera = this.cameraUni;
+        this.mode = "unimove";
+        this.arcStep = 0;
+        this.startVertex = 0;
+        this.endVertex = this.activeVertices.length;
+
+        // translate positions
+        let m = 0;
+        for (let n = 0; n < this.endVertex; n += 3) {
+            this.cameraPathPosition[m++] = new BABYLON.Vector3(this.activeVertices[n], this.activeVertices[n+1], this.activeVertices[n+2]);
+        }
+
+        return true;
+    }
+}
+
 // player
 class Avatar extends BABYLON.Mesh 
 {
-    constructor(scene, camera, spawn) 
+    constructor(scene, cameraMan, spawn) 
     {
         super("Avatar", scene);
         this.root = new BABYLON.MeshBuilder.CreateSphere("avatar-root", {diameter : 1.0, segments : 1});
@@ -674,7 +873,7 @@ class Avatar extends BABYLON.Mesh
         // items
         this.heldItem = undefined;
         this.handPosition = new BABYLON.Vector3();
-        this.myCamera = camera;
+        this.myCamera = scene.activeCamera;
 
         // state machine
         this.state = "free";
@@ -682,7 +881,8 @@ class Avatar extends BABYLON.Mesh
         this.inspector = undefined;
 
         // apply camera
-        camera.setTarget(this.absolutePosition);
+        // camera.setTarget(this.absolutePosition);
+        this.camHeight = 1.0;
 
         // raycast
         var mat = new BABYLON.StandardMaterial("raycastMat", scene);
@@ -701,15 +901,34 @@ class Avatar extends BABYLON.Mesh
         this.raycastInvalid.renderingGroupId = 1;
         this.raycastInvalid._lightSources = [];
         this.raycastIsNear = false;
-        
+        this.raycastPreviousMesh = undefined;
+        this.raycastPreview = undefined;
+
+        // inventory
+        this.inventory = new Inventory(8,8);
+        this.inventory.close();
+        this.handInvPosition = new BABYLON.Vector3(engine.getRenderWidth() * 0.50, engine.getRenderHeight() * 0.90, 0.99);
+        this.uiTexture1 = new BABYLON.Texture(uiTex1);
+
+        let xc = engine.getRenderWidth() * 0.50;
+        let yb = engine.getRenderHeight();
+
+        this.ui = new GUI.Rectangle("asd");//xc-138, yb-142, xc+138, yb);
+        this.ui.width = 277 / engine.getRenderWidth();
+        this.ui.height = 142 / engine.getRenderHeight();
+        this.ui.verticalAlignment = GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
+        this.ui.color = "cyan";
+        this.ui.background = "black";
+        this.ui.renderingGroupId = 0;
+        advancedTexture.addControl(this.ui);
     }
 
     update() 
     {
         // update camera
-        this.myCamera.position.x = Math.lerp(this.myCamera.position.x, this.root.position.x, 0.4);
-        this.myCamera.position.z = Math.lerp(this.myCamera.position.z, this.root.position.z, 0.4);
-        this.myCamera.position.y = Math.lerp(this.myCamera.position.y, this.root.position.y + 1.0, 0.4);
+        //this.myCamera.position.x = Math.lerp(this.myCamera.position.x, this.root.position.x, 0.4);
+        //this.myCamera.position.z = Math.lerp(this.myCamera.position.z, this.root.position.z, 0.4);
+        //this.myCamera.position.y = Math.lerp(this.myCamera.position.y, this.root.position.y + this.camHeight, 0.4);
 
         // set rotation to camera, inputs
         this.root.rotation.xz = this.myCamera.rotation.xz;
@@ -718,18 +937,27 @@ class Avatar extends BABYLON.Mesh
         let input_action1 = keyPressed("f");
         let input_action2 = keyPressed("q");
         let input_jump = keyPressed(" ");
+        let invtoggle = keyPressed("e");
         let pi = scene.pick(scene.pointerX, scene.pointerY);
+
+        if (invtoggle) {
+            this.inventory.toggle();
+        }
+
+        this.hover(pi);
 
         switch (this.state)
         {
             case "free":
 
                 // move jump freely
+                this.camHeight = 1.0;
                 this.speed.x = lengthdir_x(vmult * this.moveSpeed, this.myCamera.rotation.y) + lengthdir_x(hmult * this.moveSpeed, this.myCamera.rotation.y - Math.PI/2);
                 this.speed.z = lengthdir_z(vmult * this.moveSpeed, this.myCamera.rotation.y) + lengthdir_z(hmult * this.moveSpeed, this.myCamera.rotation.y - Math.PI/2);
                 if (input_jump) this.jump();
 
                 // interaction
+                
                 if (input_action1) {
                     this.action(pi);
                 } else {
@@ -738,31 +966,27 @@ class Avatar extends BABYLON.Mesh
                     }
                 }
 
-            break;
-            case "sit":
+                // sitting
+                if (this.chair != undefined) 
+                {
+                    // teleport to chair
+                    this.camHeight = 0.5;
+                    this.speed = BABYLON.Vector3.Zero();
+                    this.root.position = this.chair.position.clone();
 
-                // teleport to chair
-                this.speed = BABYLON.Vector3.Zero();
-                this.root.position = this.chair.position.clone();
-
-                // get up
-                if (input_action2 || input_jump) {
-                    this.state = "free";
-                    this.chair = undefined;
-                    this.root.physicsImpostor._physicsBody.wakeUp();
+                    // get up
+                    if (input_action2 || input_jump) {
+                        this.chair = undefined;
+                        this.root.physicsImpostor._physicsBody.wakeUp();
+                    }
                 }
 
             break;
             case "inspect":
 
-                // special camera
-                
-
-                // stop
                 if (input_action2) {
                     this.state = "free";
                     this.inspector = undefined;
-                    this.root.physicsImpostor._physicsBody.wakeUp();
                     scene.activeCamera = this.myCamera;
                 }
 
@@ -785,6 +1009,7 @@ class Avatar extends BABYLON.Mesh
 
     updateRay(pickinfo) 
     {
+        this.raycastIsNear = false;
         if (pickinfo != undefined) 
         {
             if (pickinfo.pickedMesh != null) 
@@ -793,30 +1018,101 @@ class Avatar extends BABYLON.Mesh
                 this.raycast.position = pickinfo.pickedPoint;
                 this.raycastInvalid.position = pickinfo.pickedPoint;
                 var dis = BABYLON.Vector3.Distance(pickinfo.pickedPoint, this.myCamera.position);
-                var scd1 = 1.0 + dis * 0.2;
-                var scd2 = 0.0 + dis * 0.6;
-                this.raycast.scalingDeterminant = scd1;
-                this.raycastInvalid.scalingDeterminant = scd2;
+                var scd1 = this.state == "inspect" ? 0.0 + dis * 0.3 : 1.0 + dis * 0.2;
+                var scd2 = this.state == "inspect" ? 0.0             : 0.0 + dis * 0.6;
+                this.raycast.scalingDeterminant = 10.0;
+                //this.raycastInvalid.scalingDeterminant = scd2;
                 this.raycastIsNear = (scd1 > scd2);
-            } else {
-                this.raycastIsNear = false;
-            }
+            } 
         }
     }
 
-    updateHeld() {
+    updateHeld() 
+    {
+        // designate hand position
         this.handPosition.x = this.myCamera.position.x + lengthdir_x(2.5, this.myCamera.rotation.y);
         this.handPosition.y = this.myCamera.position.y - 0.6;
         this.handPosition.z = this.myCamera.position.z + lengthdir_z(2.5, this.myCamera.rotation.y);
+
+        // overide hand position if inventory is open
+        if (this.inventory.grid.isVisible) 
+        {
+            var coordinates = BABYLON.Vector3.Unproject(this.handInvPosition, engine.getRenderWidth(), engine.getRenderHeight(), BABYLON.Matrix.Identity(), scene.getViewMatrix(), scene.getProjectionMatrix());
+            this.handPosition.x = coordinates.x;
+            this.handPosition.y = coordinates.y;
+            this.handPosition.z = coordinates.z;
+        }
+
+        // set item position there
         if (this.heldItem != undefined) {
             this.heldItem.parent._position = this.handPosition;
         }
     }
 
+    hover(pickinfo)
+    {
+        if (pickinfo == undefined || pickinfo.pickedMesh == undefined || this.raycastPreviousMesh == pickinfo.pickedMesh) {
+            return;
+        }
+
+        // clear and copy geometry
+        if (this.raycastPreview != undefined) {
+            this.raycastPreview.dispose();
+        }
+        switch (pickinfo.pickedMesh.class)
+        {
+            case "world":
+            case "item":
+            case "interior":
+            case "devilmachine":
+                // console.log(pickinfo.pickedMesh.parent.class); 
+                let sourceMeshInstance = pickinfo.pickedMesh;
+                let sourceMesh = pickinfo.pickedMesh;
+                if (sourceMesh.isAnInstance) 
+                {
+                    // find source
+                    this.raycastPreview = sourceMesh._sourceMesh.clone("previewclone");
+                    this.raycastPreview.class = "preview";
+                    
+                    
+                    // copy position / rotation
+                    this.raycastPreview.position = sourceMeshInstance.position;
+                    if (sourceMeshInstance.rotationQuaternion != null) {
+                        this.raycastPreview.rotationQuaternion = sourceMeshInstance.rotationQuaternion.clone();
+                    } else {
+                        this.raycastPreview.rotation = sourceMeshInstance.rotation.clone();
+                    }
+                } 
+                else 
+                {
+                    // copy
+                    while (sourceMesh.parent != null && sourceMesh.parent.id != "__root__") {
+                        sourceMesh = sourceMesh.parent;
+                    }
+                    this.raycastPreview = sourceMesh.clone("previewclone");
+                    this.raycastPreview.class = "preview";
+                    console.log(this.raycast);
+                }
+
+                // update previous
+                this.raycastPreview.isPickable = false;
+                this.raycastPreview.material = RCM;
+                this.raycastPreviousMesh = pickinfo.pickedMesh;
+
+            break;
+            case "terrain": // don't do that here please, that sounds awful
+            case "foliage":
+
+            break;
+        }
+        
+    }
+
     action(pickinfo) 
     {
         // handle raycast pickedMesh
-        if (pickinfo == undefined || pickinfo.pickedMesh == undefined || !player.raycastIsNear) {
+        console.log(pickinfo);
+        if (pickinfo == undefined || pickinfo.pickedMesh == undefined) {// || !player.raycastIsNear) {
             return;
         }
 
@@ -827,10 +1123,21 @@ class Avatar extends BABYLON.Mesh
         switch (pickinfo.pickedMesh.class)
         {
             case "world":
+                cameraManager.activateCameraFlight();
+            break;
+            case "skycity":
+
+            break;
             case "foliage":
 
             break;
             case "devilmachine":
+
+                // make sure to remove hover clones before an animation
+
+                this.inspect(pickinfo.pickedMesh);
+                console.log(devilmachine);
+                devilmachine.tryStart();
                 switch (realname)
                 {
                     case "DisplayMain":
@@ -850,28 +1157,46 @@ class Avatar extends BABYLON.Mesh
                 {
                     case "Chairstool":
                     case "SM_Chair":
-                        this.state = "sit";
                         this.chair = pickinfo.pickedMesh;
                         this.root.physicsImpostor._physicsBody.sleep();
                     break;
                     case "SM_Centrifuge":
-                        this.state = "inspect";
-                        this.inspector = pickinfo.pickedMesh;
-                        if (inspectorCamera == undefined) {
-                            inspectorCamera = new BABYLON.ArcRotateCamera("inscam", 0, 0, 1, BABYLON.Vector3.Zero(), scene, false);
-                            inspectorCamera.minZ = 0.1;
-                            inspectorCamera.panningSensibility = 0;
-                            inspectorCamera.zoomOnFactor = 0.2;
-                            inspectorCamera.attachControl(true);
-                        }
-                        inspectorCamera.setTarget(this.inspector.position.clone());
-                        inspectorCamera.position = this.myCamera.position.clone();
-                        scene.activeCamera = inspectorCamera;
-                        this.root.physicsImpostor._physicsBody.sleep();
+                    case "SM_AnalyticalBalance":
+                    case "SM_Distiller":
+                    case "SM_Microscope":
+                    case "SM_VortexMixer":
+                    case "SM_Monitor":
+                    case "SM_Monitor_Large":
+                    case "SM_Dissecator":
+                    case "Surfdisplay":
+                        this.inspect(pickinfo.pickedMesh);
                     break;
                 }
             break;
         }
+    }
+
+    inspect(mesh) 
+    {
+        this.state = "free";
+        this.inspector = mesh;
+        let r = mesh.getBoundingInfo().boundingSphere.radiusWorld;
+        let data = {minZ:0.01, lowerRadiusLimit:5, upperRadiusLimit:15, wheelPrecision:100/r};
+        cameraManager.changeCamera("arc", true, mesh, data);
+
+        /*
+        if (inspectorCamera == undefined) {
+            inspectorCamera = new BABYLON.ArcRotateCamera("inscam", 0, 0, 1, BABYLON.Vector3.Zero(), scene, false);
+            inspectorCamera.minZ = 0.01;
+            inspectorCamera.panningSensibility = 0;
+            inspectorCamera.attachControl(true);
+        }
+        inspectorCamera.setTarget(mesh.position.clone());
+        inspectorCamera.position = this.myCamera.position.clone();
+        inspectorCamera.lowerRadiusLimit = 1.5 * r; 
+        inspectorCamera.upperRadiusLimit = 4.0 * r;
+        inspectorCamera.wheelPrecision = 100.0 / r;
+        scene.activeCamera = inspectorCamera;*/
     }
 
     pickup(mesh) { 
@@ -879,10 +1204,11 @@ class Avatar extends BABYLON.Mesh
             this.drop();
         }
         this.heldItem = mesh;
-        this.heldItem._parentNode.picked = true;
-        this.heldItem._parentNode.isPickable = false;
-        this.heldItem._parentNode.physicsImpostor.sleep();
-        this.heldItem.renderingGroupId = 1;
+        mesh._parentNode.picked = true;
+        mesh._parentNode.isPickable = false;
+        mesh._parentNode.physicsImpostor.sleep();
+        mesh.renderingGroupId = 1;
+        console.log("picked up item");
     }
 
     drop() {
@@ -892,6 +1218,7 @@ class Avatar extends BABYLON.Mesh
             this.heldItem._parentNode.physicsImpostor.wakeUp();
             this.heldItem.renderingGroupId = 0;
             this.heldItem = undefined;
+            console.log("dropped item");
         }
     }
 }
@@ -903,10 +1230,10 @@ const setsEqual = function(xs, ys) {
   
 // key presses
 const keyRate = 100;
-const keysRated = new Set(["f","q"]);
+const keysRated = new Set(["f","q","e"]);
 const keys = new CyborgMap();
     keys.set("w", 0); keys.set("a", 0); keys.set("s", 0); keys.set("d", 0);
-    keys.set(" ", 0); keys.set("f", 0); keys.set("q", 0);
+    keys.set(" ", 0); keys.set("f", 0); keys.set("q", 0); keys.set("e", 0);
 
 function keyPressed(key="f") {
     return keys.get(key) == keyRate;
@@ -924,46 +1251,59 @@ document.body.addEventListener('keyup', function(e) {
 var gravityVector = new BABYLON.Vector3(0, -16.00, 0);
 const canvas = document.getElementById('renderCanvas');
 const engine = new BABYLON.Engine(canvas);
+    engine.setHardwareScalingLevel(1);
+    engine.displayLoadingUI();
 const scene = new BABYLON.Scene(engine, {fogStart : 150, fogEnd : 400, fogColor : BABYLON.Color3.Black, collisionsEnabled : true, autoClear : true});
-    scene.createDefaultSkybox(new BABYLON.CubeTexture('/textures/environment.env', scene), true, 300, false);
+    scene.createDefaultSkybox(new BABYLON.CubeTexture('/textures/environment.env', scene), true, 3000, false);
     scene.collisionsEnabled = true;
     scene.enablePhysics(gravityVector);
     scene.autoClear = false; // Color buffer
     scene.autoClearDepthAndStencil = false; // Depth and stencil, obviously
     scene.blockMaterialDirtyMechanism = true;
-    scene.debugLayer.show();
+    // scene.debugLayer.show();
     scene.pointerMovePredicate = () => false;
     scene.pointerDownPredicate = () => false;
     scene.pointerUpPredicate = () => false;
+
     //scene.enablePhysics(new BABYLON.Vector3(0,-12,0)); // physics engine
     scene.skipFrustumCulling = false
 const glowlayer = new BABYLON.GlowLayer("glow", scene);
-const ambientlight = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 20, 0), scene);
-    ambientlight.intensity = 0.08;
-
-const sunlight = new BABYLON.DirectionalLight("spotlight", new BABYLON.Vector3(-1, -1, 1), scene);
-    sunlight.position = new BABYLON.Vector3(6, 2, 6);  
-    sunlight.intensity = 4.6;
+const ambientlight = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 0, 0), scene);
+    ambientlight.intensity = 0.04;
+    ambientlight.color = new BABYLON.Color3(1,1,1);
+const sunlight = new BABYLON.DirectionalLight("spotlight", new BABYLON.Vector3(0, -1, 0), scene);  
+    sunlight.intensity = 4.4;
     sunlight.shadowEnabled = true;
-    sunlight.shadowMaxZ = 12000;
+    sunlight.shadowMaxZ = 35000;
     sunlight.autoCalcShadowZBounds = true;
-const shadowGeneratorCascaded = new BABYLON.CascadedShadowGenerator(2048, sunlight);
-    shadowGeneratorCascaded.lambda = 1.0;
-    shadowGeneratorCascaded.cascadeBlendPercentage = 0.2;
+    sunlight.color = new BABYLON.Color3(1,1,.8);
+const shadowGeneratorCascaded = new BABYLON.CascadedShadowGenerator(4096, sunlight);
+    shadowGeneratorCascaded.lambda = 0.29;
+    shadowGeneratorCascaded.cascadeBlendPercentage = 0.0;
     shadowGeneratorCascaded.debug = false;
     shadowGeneratorCascaded.autoCalcDepthBounds = true;
-    shadowGeneratorCascaded.numCascades = 1;
-    shadowGeneratorCascaded.shadowMaxZ = 12000;
+    shadowGeneratorCascaded.numCascades = 4;
+    shadowGeneratorCascaded.shadowMaxZ = 35000;
     shadowGeneratorCascaded.bias = 0.01; // 0.02
-const shadowsEnabled = true;
+const shadowsEnabled = true;/*
 const camera = new BABYLON.UniversalCamera("MyCamera", new BABYLON.Vector3(0, 1, 0), scene);
-    camera.minZ = 0.1;
+    camera.minZ = 1;
+    camera.maxZ = 42000;
     camera.attachControl(true);
-var inspectorCamera = undefined;
+var inspectorCamera = undefined;*/
 const advancedTexture = GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI", true, scene);
 const utillayer = new BABYLON.UtilityLayerRenderer(scene);
 const instrumentation = new BABYLON.SceneInstrumentation(scene);
-    instrumentation.captureRenderTime = true;
+    instrumentation.captureRenderTime = true;/*
+const worldCamera = new BABYLON.ArcRotateCamera("worldcam", 0.5, 0.5, 1, BABYLON.Vector3.Zero(), scene, false);
+    worldCamera.minZ = 1;
+    worldCamera.panningSensibility = 0;
+    worldCamera.attachControl(true);
+    worldCamera.lowerRadiusLimit = 250; 
+    worldCamera.upperRadiusLimit = 450;
+    worldCamera.wheelPrecision = 0.2;*/
+const cameraManager = new CameraManager();
+await cameraManager.loadPaths();
 
 // PBR materials
 const noEmission = new BABYLON.Color3(0,0,0);
@@ -976,11 +1316,18 @@ const pbrMateralGlass = new BABYLON.PBRMaterial("glassMat", scene);
     pbrMateralGlass._albedoColor = new BABYLON.Color3(0,0,0);
     pbrMateralGlass.alpha = 0.45;
     pbrMateralGlass.freeze();
-
+const RCM = new BABYLON.StandardMaterial("raycastMat", scene);
+    RCM.emissiveColor = new BABYLON.Color3(0.2,0.2,0);
 // node materials
 const nodeMaterialBase = BABYLON.NodeMaterial.Parse(nodeMaterialBaseUrl1, scene);
     nodeMaterialBase.backFaceCulling = true; 
     nodeMaterialBase.freeze();
+const nodeMaterialTerrain = BABYLON.NodeMaterial.Parse(nodeMaterialTerrainUrl, scene);
+    nodeMaterialTerrain.backFaceCulling = true; 
+    nodeMaterialTerrain.freeze();
+const nodeMaterialWater = BABYLON.NodeMaterial.Parse(nodeMaterialWaterUrl, scene);
+    nodeMaterialWater.backFaceCulling = true; 
+    nodeMaterialWater.freeze();
 const nodeMaterialSkycity = BABYLON.NodeMaterial.Parse(nodeMaterialBaseUrl2, scene);
     nodeMaterialSkycity.backFaceCulling = true; 
     nodeMaterialSkycity.freeze();
@@ -993,7 +1340,10 @@ const nodeMaterialLeaf = BABYLON.NodeMaterial.Parse(nodeMaterialBaseLeaf, scene)
 // global variables
 const divFps = document.getElementById("fps");
 const divDrawCalls = document.getElementById("drawcalls");
-const player = new Avatar(scene, camera, BABYLON.Vector3.Zero());
+const player = new Avatar(scene, cameraManager, BABYLON.Vector3.Zero());
+
+// GUI
+
 
 // game running functions
 engine.runRenderLoop(function() {
@@ -1023,7 +1373,7 @@ scene.registerBeforeRender(function()
 
     // other shit
     if (devilmachine.ready) {
-        devilmachine.update(camera);
+        //devilmachine.update(camera);
     }
 
     // histo art
@@ -1034,6 +1384,9 @@ scene.registerBeforeRender(function()
     if (logos.ready) {
         logos.update();
     }
+
+    // update cameras
+    cameraManager.update();
 });
 
 // start game !!! final order !!!

@@ -1,0 +1,79 @@
+{
+    "asset" : {
+        "generator" : "Khronos glTF Blender I/O v3.4.50",
+        "version" : "2.0"
+    },
+    "scene" : 0,
+    "scenes" : [
+        {
+            "name" : "Scene",
+            "nodes" : [
+                0
+            ]
+        }
+    ],
+    "nodes" : [
+        {
+            "mesh" : 0,
+            "name" : "BezierCurve"
+        }
+    ],
+    "meshes" : [
+        {
+            "name" : "Mesh",
+            "primitives" : [
+                {
+                    "attributes" : {
+                        "POSITION" : 0
+                    },
+                    "indices" : 1,
+                    "mode" : 1
+                }
+            ]
+        }
+    ],
+    "accessors" : [
+        {
+            "bufferView" : 0,
+            "componentType" : 5126,
+            "count" : 48,
+            "max" : [
+                4.600000381469727,
+                0,
+                1.556228756904602
+            ],
+            "min" : [
+                -1.9023208618164062,
+                0,
+                -2.2367327213287354
+            ],
+            "type" : "VEC3"
+        },
+        {
+            "bufferView" : 1,
+            "componentType" : 5123,
+            "count" : 96,
+            "type" : "SCALAR"
+        }
+    ],
+    "bufferViews" : [
+        {
+            "buffer" : 0,
+            "byteLength" : 576,
+            "byteOffset" : 0,
+            "target" : 34962
+        },
+        {
+            "buffer" : 0,
+            "byteLength" : 192,
+            "byteOffset" : 576,
+            "target" : 34963
+        }
+    ],
+    "buffers" : [
+        {
+            "byteLength" : 768,
+            "uri" : "data:application/octet-stream;base64,NDOTQAAAAAAAAACAYYOSQAAAAAA7A4C+iCKPQAAAAAAeCQC/RnWJQAAAAABJKj+/OOCBQAAAAADoeHy/8o9xQAAAAABihJu/SyJdQAAAAADU9ra/s0BHQAAAAACtHdC/YrQwQAAAAADSgua/kUYaQAAAAAAosPm/eMAEQAAAAADJlwTAntbhPwAAAAB7RQrAniC/PwAAAAAdpg3AdVecPwAAAAA0Gg/AgMVoPwAAAAChJg/AGncRPwAAAADaxg3AUtdWPgAAAABW9grA0DAevgAAAACMsAbA41wDvwAAAADz8ADAHMpavwAAAAADZvO/4nCVvwAAAABd5OG/3li4vwAAAADiU82/9aPUvwAAAACAq7W/GNnovwAAAAAl4pq/QH/zvwAAAAB43Xm/BLjyvwAAAABA1Di/L7bmvwAAAABgyem+ZhrRvwAAAADgMD6+TYWzvwAAAAC8va09iJePvwAAAABc07I+euNNvwAAAAA7DBo/PtLsvgAAAADuIVY/SArgvQAAAACrFoY//Ep4PgAAAACCWJ0/sJEUPwAAAADDF7A/QDpkPwAAAAC2lb0/kOWUPwAAAACkE8U/WPa3PwAAAACBMsc/CajgPwAAAAC5N8U/TrAGQAAAAABBW78/BUMeQAAAAAAN1bU/Jj82QAAAAAAT3ag/rddNQAAAAABIq5g/lj9kQAAAAAChd4U/3ql4QAAAAAAn9F4/wSSFQAAAAAAo1S0/viiMQAAAAABgBPA+ZvqQQAAAAACkrHc+AAABAAEAAgACAAMAAwAEAAQABQAFAAYABgAHAAcACAAIAAkACQAKAAoACwALAAwADAANAA0ADgAOAA8ADwAQABAAEQARABIAEgATABMAFAAUABUAFQAWABYAFwAXABgAGAAZABkAGgAaABsAGwAcABwAHQAdAB4AHgAfAB8AIAAgACEAIQAiACIAIwAjACQAJAAlACUAJgAmACcAJwAoACgAKQApACoAKgArACsALAAsAC0ALQAuAC4ALwAvAAAA"
+        }
+    ]
+}

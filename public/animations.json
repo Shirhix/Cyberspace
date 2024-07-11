@@ -1,0 +1,157 @@
+
+var sledPos = this.animators.get("dms_schlitten").mesh.position;
+var magPos = this.animators.get("dms_magnifier").mesh.position;
+var pipPos = this.animators.get("dms_pipetierer").mesh.position;
+var pip2Pos = this.animators.get("dms_pipetierer2").mesh.position;
+var nanoPos = this.animators.get("dms_schlitten_nano").mesh.position;
+var quadPos = this.animators.get("dms_quadreagenz").mesh.position;
+var centPos = this.animators.get("dms_spule_innen_links").mesh.position;
+var cent2Pos = this.animators.get("dms_spule_innen_rechts").mesh.position;
+var cent3Pos = this.animators.get("dms_spule_aussen_links").mesh.position;
+var cent4Pos = this.animators.get("dms_spule_aussen_rechts").mesh.position;
+
+{
+    "DevilMachineRun":{
+        "animators":[
+            {"name":"dms_schlitten","member":"position"},
+            {"name":"dms_magnifier","member":"position"},
+            {"name":"dms_pipetierer","member":"position"},
+            {"name":"dms_pipetierer2","member":"position"},
+            {"name":"dms_schlitten_nano","member":"position"},
+            {"name":"dms_quadreagenz","member":"position"},
+            {"name":"dms_spule_innen_links","member":"position"},
+            {"name":"dms_spule_innen_rechts","member":"position"},
+            {"name":"dms_spule_aussen_links","member":"position"},
+            {"name":"dms_spule_aussen_rechts","member":"position"}
+        ],
+        "frames":[
+            
+        ],
+        "animation":[
+            [{"name":"dms_magnifier","index":0},{"name":"dms_schlitten","index":1}]
+        ]
+    }
+}
+
+var frames = [
+    {frame:   0, value: sledPos.x},
+    {frame:  60, value: magPos.x}
+]; super.registerAnimation("dms_schlitten", frames, "position.x");
+
+// MAG DOWN AND UP
+var frames = [
+    {frame:   0, value: magPos.y},
+    {frame:  60, value: magPos.y - 0.05},
+    {frame: 120, value: magPos.y}
+]; super.registerAnimation("dms_magnifier", frames, "position.y");
+
+// SLED TO PIPE
+var frames = [
+    {frame:   0, value: magPos.x},
+    {frame:  60, value: pipPos.x}
+]; super.registerAnimation("dms_schlitten", frames, "position.x");
+
+// PIPE DOWN AND UP
+var frames = [
+    {frame:   0, value: pipPos.y},
+    {frame:  40, value: pipPos.y - 0.05},
+    {frame:  80, value: pipPos.y}
+]; super.registerAnimation("dms_pipetierer", frames, "position.y");
+
+// SLED TO ORIGIN
+var frames = [
+    {frame:   0, value: pipPos.x},
+    {frame: 120, value: sledPos.x}
+]; super.registerAnimation("dms_schlitten", frames, "position.x");
+
+// PIPE TO QUAD AND DOWN AND BACK
+var frames = [
+    {frame:   0, value: pipPos.x},
+    {frame:  60, value: quadPos.x}
+]; super.registerAnimation("dms_pipetierer", frames, "position.x");
+var frames = [
+    {frame:   0, value: pipPos.y},
+    {frame:  40, value: pipPos.y - 0.05},
+    {frame:  80, value: pipPos.y}
+]; super.registerAnimation("dms_pipetierer", frames, "position.y");
+var frames = [
+    {frame:   0, value: quadPos.x},
+    {frame:  60, value: pipPos.x}
+]; super.registerAnimation("dms_pipetierer", frames, "position.x");
+
+/////////////////////////////////////////////
+// NANO SLED TO PIPE 2
+var frames = [
+    {frame:   0, value: nanoPos.x},
+    {frame:  80, value: pip2Pos.x}
+]; super.registerAnimation("dms_schlitten_nano", frames, "position.x");
+
+// PIPE DOWN AND UP
+var frames = [
+    {frame:   0, value: pip2Pos.y},
+    {frame:  40, value: pip2Pos.y - 0.05},
+    {frame:  80, value: pip2Pos.y}
+]; super.registerAnimation("dms_pipetierer2", frames, "position.y");
+
+// NANO SLED TO ORIGIN
+var frames = [
+    {frame:   0, value: pip2Pos.x},
+    {frame:  80, value: nanoPos.x}
+]; super.registerAnimation("dms_schlitten_nano", frames, "position.x");
+
+// PIPE2 TO QUAD AND DOWN AND BACK
+var frames = [
+    {frame:   0, value: pip2Pos.x},
+    {frame:  60, value: quadPos.x}
+]; super.registerAnimation("dms_pipetierer2", frames, "position.x");
+var frames = [
+    {frame:   0, value: pip2Pos.y},
+    {frame:  40, value: pip2Pos.y - 0.05},
+    {frame:  80, value: pip2Pos.y}
+]; super.registerAnimation("dms_pipetierer2", frames, "position.y");
+var frames = [
+    {frame:   0, value: quadPos.x},
+    {frame:  60, value: pip2Pos.x}
+]; super.registerAnimation("dms_pipetierer2", frames, "position.x");
+
+// QUAD BACK AND UP (PARALLEL)
+var frames = [
+    {frame:   0, value: quadPos.z},
+    {frame:  60, value: centPos.z}
+]; super.registerAnimation("dms_quadreagenz", frames, "position.z");
+var frames = [
+    {frame:  40, value: quadPos.y},
+    {frame: 100, value: centPos.y}
+]; super.registerAnimation("dms_quadreagenz", frames, "position.y");
+
+// MAGNETS
+var frames = [
+    {frame:   0, value: centPos.x},
+    {frame: 100, value: centPos.x - 0.05},
+    {frame: 200, value: centPos.x}
+]; super.registerAnimation("dms_spule_innen_links", frames, "position.x");
+var frames = [
+    {frame:   0, value: cent2Pos.x},
+    {frame: 100, value: cent2Pos.x + 0.05},
+    {frame: 200, value: cent2Pos.x}
+]; super.registerAnimation("dms_spule_innen_rechts", frames, "position.x");
+var frames = [
+    {frame:  50, value: cent3Pos.x},
+    {frame: 150, value: cent3Pos.x - 0.05},
+    {frame: 250, value: cent3Pos.x}
+]; super.registerAnimation("dms_spule_aussen_links", frames, "position.x");
+var frames = [
+    {frame:  50, value: cent4Pos.x},
+    {frame: 150, value: cent4Pos.x + 0.05},
+    {frame: 250, value: cent4Pos.x}
+]; super.registerAnimation("dms_spule_aussen_rechts", frames, "position.x");
+
+// QUAD BACK AND down (PARALLEL)
+var frames = [
+    {frame:  40, value: centPos.z},
+    {frame: 100, value: quadPos.z}
+]; super.registerAnimation("dms_quadreagenz", frames, "position.z");
+var frames = [
+    {frame:   0, value: centPos.y},
+    {frame:  60, value: quadPos.y}
+]; super.registerAnimation("dms_quadreagenz", frames, "position.y");
